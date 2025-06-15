@@ -16,6 +16,11 @@ app.use(cors({
 // Express static if needed
 // app.use(express.static(...));
 
+
+app.get('/' , (req, res) => {
+res.send('welcome to webrtc backend');
+})
+
 const server = app.listen(PORT, '0.0.0.0', () => {
   console.log(`Server running on http://0.0.0.0:${PORT}`);
 });
