@@ -87,9 +87,11 @@ const App = () => {
       }
     };
 
-    peerConnection.current.ontrack = (event) => {
-      remoteVideoRef.current.srcObject = event.streams[0];
-    };
+peerConnection.current.ontrack = (event) => {
+  console.log('🎥 Remote stream received:', event.streams[0]);
+  remoteVideoRef.current.srcObject = event.streams[0];
+};
+
   };
 
   const callPeer = async () => {
