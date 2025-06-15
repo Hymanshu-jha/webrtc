@@ -2,10 +2,6 @@ import React, { useEffect, useRef, useState } from 'react';
 
 const SIGNALING_SERVER = 'wss://webrtc-du7f.onrender.com';
 
-const PORT = 5050;
-
-
-
 const App = () => {
   const localVideoRef = useRef(null);
   const remoteVideoRef = useRef(null);
@@ -13,12 +9,23 @@ const App = () => {
   const peerConnection = useRef(null);
   const webcamStream = useRef(null);
 
-
   const [myId] = useState(() => Math.random().toString(36).substring(2, 9));
-  console.log("myId:  " , myId);
   const [remoteId, setRemoteId] = useState('');
 
-  // Setup WebSocket on mount
+  // Wait until peerConnection is ready
+  const waitForPeerConnection = async (retries = 20) => {
+    while (!peerConnection.current && retries > 0) {
+      console.warn("⏳ Waiting for peerConnection to be ready...");
+      await new Promise(resolve => setTimeout(resolve, 100));
+      retries--;
+    }
+
+    if (!peerConnection.current) {
+      throw new Error("❌ peerConnection not initialized in time.");
+    }
+  };
+
+  // Setup WebSocket
   useEffect(() => {
     socket.current = new WebSocket(SIGNALING_SERVER);
 
@@ -39,7 +46,14 @@ const App = () => {
           await peerConnection.current.setRemoteDescription(msg.payload);
           break;
         case 'ice':
-          if (msg.payload) await peerConnection.current.addIceCandidate(msg.payload);
+          if (msg.payload) {
+            try {
+              await waitForPeerConnection();
+              await peerConnection.current.addIceCandidate(msg.payload);
+            } catch (err) {
+              console.error("❌ Failed to add ICE candidate:", err);
+            }
+          }
           break;
         default:
           break;
@@ -55,70 +69,60 @@ const App = () => {
     socket.current.send(JSON.stringify({ type, payload, to: remoteId }));
   };
 
-
-
-
-const startMedia = async () => {
-  try {
-    // Try to access the webcam
-    webcamStream.current = await navigator.mediaDevices.getUserMedia({ video: true, audio: true });
-    localVideoRef.current.srcObject = webcamStream.current;
-    setupPeerConnection();
-  } catch (err) {
-    if (err.name === 'NotAllowedError') {
-      console.error('🚫 Permission denied for camera/mic.');
-    } else if (err.name === 'NotReadableError') {
-      console.error('📷 Device already in use!');
-      // Optionally show a message or skip setup
-      return;
-    } else {
-      console.error('❌ Error accessing media devices:', err);
+  const startMedia = async () => {
+    try {
+      webcamStream.current = await navigator.mediaDevices.getUserMedia({ video: true, audio: true });
+      localVideoRef.current.srcObject = webcamStream.current;
+      setupPeerConnection();
+    } catch (err) {
+      if (err.name === 'NotAllowedError') {
+        console.error('🚫 Permission denied for camera/mic.');
+      } else if (err.name === 'NotReadableError') {
+        console.error('📷 Device already in use!');
+        return;
+      } else {
+        console.error('❌ Error accessing media devices:', err);
+      }
     }
-  }
-};
-
-
+  };
 
   const setupPeerConnection = () => {
     peerConnection.current = new RTCPeerConnection({
       iceServers: [{ urls: 'stun:stun.l.google.com:19302' }],
     });
 
-    // Add all tracks to peer connection
     webcamStream.current.getTracks().forEach(track => {
       peerConnection.current.addTrack(track);
     });
 
-    // ICE candidate handler
     peerConnection.current.onicecandidate = (event) => {
       if (event.candidate) sendMessage('ice', event.candidate);
     };
 
-    // When remote stream is received
     peerConnection.current.ontrack = (event) => {
       remoteVideoRef.current.srcObject = event.streams[0];
     };
   };
 
-const callPeer = async () => {
-  if (!webcamStream.current) {
-    console.warn("⚠️ Webcam not started. Starting now...");
-    await startMedia();
-  }
+  const callPeer = async () => {
+    if (!webcamStream.current) {
+      console.warn("⚠️ Webcam not started. Starting now...");
+      await startMedia();
+    }
 
-  if (!webcamStream.current || !peerConnection.current) {
-    console.error("❌ Cannot call peer: media or peerConnection not ready.");
-    return;
-  }
+    if (!webcamStream.current || !peerConnection.current) {
+      console.error("❌ Cannot call peer: media or peerConnection not ready.");
+      return;
+    }
 
-  try {
-    const offer = await peerConnection.current.createOffer();
-    await peerConnection.current.setLocalDescription(offer);
-    sendMessage('offer', offer);
-  } catch (err) {
-    console.error("❌ Error creating offer:", err);
-  }
-};
+    try {
+      const offer = await peerConnection.current.createOffer();
+      await peerConnection.current.setLocalDescription(offer);
+      sendMessage('offer', offer);
+    } catch (err) {
+      console.error("❌ Error creating offer:", err);
+    }
+  };
 
   const handleOffer = async (offer) => {
     await startMedia();
