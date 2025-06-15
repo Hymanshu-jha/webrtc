@@ -13,7 +13,7 @@ function App() {
 
   useEffect(() => {
     // Connect to signaling server
-    socket.current = new WebSocket('ws://localhost:3001');
+    socket.current = new WebSocket('ws://webrtc-du7f.onrender.com/');
 
     
   socket.current.onopen = () => {
@@ -46,7 +46,7 @@ function App() {
   }, []);
 
 
-  
+
 const send = (data) => {
   if (socket.current && socket.current.readyState === WebSocket.OPEN) {
     socket.current.send(JSON.stringify(data));
