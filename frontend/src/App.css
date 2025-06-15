@@ -1,0 +1,242 @@
+/* WebRTC Video Chat Styles */
+
+.app-container {
+  padding: 2rem;
+  text-align: center;
+  font-family: 'Arial', sans-serif;
+  max-width: 1200px;
+  margin: 0 auto;
+}
+
+.app-title {
+  color: #333;
+  margin-bottom: 1rem;
+}
+
+.connection-info {
+  margin-bottom: 1rem;
+  color: #666;
+}
+
+.connection-info strong {
+  color: #333;
+}
+
+.controls-section {
+  margin: 1rem 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 1rem;
+}
+
+.input-group {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+  flex-wrap: wrap;
+  justify-content: center;
+}
+
+.remote-id-input {
+  padding: 0.8rem;
+  width: 200px;
+  border: 2px solid #ddd;
+  border-radius: 4px;
+  font-size: 1rem;
+  outline: none;
+  transition: border-color 0.3s ease;
+}
+
+.remote-id-input:focus {
+  border-color: #2196F3;
+}
+
+.btn {
+  padding: 0.8rem 1.5rem;
+  border: none;
+  border-radius: 4px;
+  cursor: pointer;
+  font-size: 1rem;
+  font-weight: bold;
+  transition: background-color 0.3s ease, transform 0.1s ease;
+  outline: none;
+}
+
+.btn:hover:not(:disabled) {
+  transform: translateY(-1px);
+}
+
+.btn:active:not(:disabled) {
+  transform: translateY(0);
+}
+
+.btn-start {
+  background-color: #4CAF50;
+  color: white;
+}
+
+.btn-start:hover:not(:disabled) {
+  background-color: #45a049;
+}
+
+.btn-call {
+  background-color: #2196F3;
+  color: white;
+}
+
+.btn-call:hover:not(:disabled) {
+  background-color: #1976D2;
+}
+
+.btn:disabled {
+  background-color: #ccc;
+  cursor: not-allowed;
+  transform: none;
+}
+
+.video-container {
+  margin-top: 2rem;
+  display: flex;
+  justify-content: center;
+  gap: 2rem;
+  flex-wrap: wrap;
+}
+
+.video-section {
+  text-align: center;
+  flex: 1;
+  min-width: 300px;
+  max-width: 400px;
+}
+
+.video-title {
+  margin-bottom: 1rem;
+  color: #333;
+  font-size: 1.1rem;
+}
+
+.video-element {
+  background-color: #000;
+  border: 2px solid #ddd;
+  border-radius: 8px;
+  width: 100%;
+  max-width: 350px;
+  height: auto;
+  aspect-ratio: 4/3;
+  object-fit: cover;
+  transition: border-color 0.3s ease;
+}
+
+.video-element:hover {
+  border-color: #2196F3;
+}
+
+.instructions {
+  margin-top: 2rem;
+  font-size: 0.9em;
+  color: #666;
+  max-width: 600px;
+  margin-left: auto;
+  margin-right: auto;
+}
+
+.instructions-title {
+  color: #333;
+  margin-bottom: 1rem;
+}
+
+.instructions-list {
+  text-align: left;
+  line-height: 1.6;
+  padding-left: 1.5rem;
+}
+
+.instructions-list li {
+  margin-bottom: 0.5rem;
+}
+
+.connection-status {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.3rem 0.8rem;
+  border-radius: 20px;
+  font-size: 0.85rem;
+  font-weight: bold;
+  margin: 0 0.25rem;
+}
+
+.status-new {
+  background-color: #f0f0f0;
+  color: #666;
+}
+
+.status-connecting {
+  background-color: #fff3cd;
+  color: #856404;
+}
+
+.status-connected {
+  background-color: #d4edda;
+  color: #155724;
+}
+
+.status-failed {
+  background-color: #f8d7da;
+  color: #721c24;
+}
+
+.status-disconnected {
+  background-color: #e2e3e5;
+  color: #383d41;
+}
+
+/* Responsive Design */
+@media (max-width: 768px) {
+  .app-container {
+    padding: 1rem;
+  }
+  
+  .input-group {
+    flex-direction: column;
+    gap: 0.8rem;
+  }
+  
+  .remote-id-input {
+    width: 100%;
+    max-width: 300px;
+  }
+  
+  .btn {
+    width: 100%;
+    max-width: 300px;
+  }
+  
+  .video-container {
+    flex-direction: column;
+    gap: 1.5rem;
+  }
+  
+  .video-section {
+    min-width: auto;
+  }
+  
+  .video-element {
+    max-width: 100%;
+  }
+}
+
+@media (max-width: 480px) {
+  .app-container {
+    padding: 0.5rem;
+  }
+  
+  .app-title {
+    font-size: 1.5rem;
+  }
+  
+  .video-container {
+    gap: 1rem;
+  }
+}

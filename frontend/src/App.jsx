@@ -1,4 +1,5 @@
 import React, { useEffect, useRef, useState } from 'react';
+import './App.css';
 
 const SIGNALING_SERVER = 'wss://webrtc-du7f.onrender.com';
 
@@ -31,7 +32,6 @@ const App = () => {
 
       switch (msg.type) {
         case 'offer':
-          // Set the remote ID when we receive an offer so we know who to send the answer to
           if (msg.from && !remoteId) {
             console.log('📝 Setting remote ID from incoming offer:', msg.from);
             setRemoteId(msg.from);
@@ -41,7 +41,6 @@ const App = () => {
         case 'answer':
           console.log('📞 Received answer');
           await peerConnection.current.setRemoteDescription(msg.payload);
-          // Process pending ICE candidates after setting remote description
           await processPendingCandidates();
           break;
         case 'ice':
@@ -146,7 +145,6 @@ const App = () => {
       ],
     });
 
-    // Add local stream tracks
     if (webcamStream.current) {
       webcamStream.current.getTracks().forEach(track => {
         console.log('➕ Adding track:', track.kind);
@@ -154,7 +152,6 @@ const App = () => {
       });
     }
 
-    // Handle ICE candidates
     peerConnection.current.onicecandidate = (event) => {
       if (event.candidate) {
         console.log('❄️ Sending ICE candidate');
@@ -164,7 +161,6 @@ const App = () => {
       }
     };
 
-    // Handle remote stream
     peerConnection.current.ontrack = (event) => {
       console.log('🎥 Remote stream received:', event.streams[0]);
       if (remoteVideoRef.current && event.streams[0]) {
@@ -173,7 +169,6 @@ const App = () => {
       }
     };
 
-    // Connection state monitoring
     peerConnection.current.onconnectionstatechange = () => {
       const state = peerConnection.current.connectionState;
       console.log('🔗 Connection state:', state);
@@ -186,7 +181,6 @@ const App = () => {
       setIceConnectionState(state);
     };
 
-    // Handle data channel if needed
     peerConnection.current.ondatachannel = (event) => {
       console.log('📡 Data channel received:', event.channel.label);
     };
@@ -238,7 +232,6 @@ const App = () => {
       await peerConnection.current.setRemoteDescription(offer);
       console.log('✅ Remote description set');
 
-      // Process pending ICE candidates
       await processPendingCandidates();
 
       console.log('📞 Creating answer...');
@@ -252,99 +245,84 @@ const App = () => {
     }
   };
 
-  return (
-    <div style={{ padding: '2rem', textAlign: 'center', fontFamily: 'Arial, sans-serif' }}>
-      <h2>📞 WebRTC Video Chat</h2>
-      <p><strong>Your ID:</strong> {myId}</p>
-      <p><strong>Connection:</strong> {connectionState} | <strong>ICE:</strong> {iceConnectionState}</p>
+  const getConnectionStatusClass = (state) => {
+    switch (state) {
+      case 'connected': return 'status-connected';
+      case 'connecting': return 'status-connecting';
+      case 'failed': return 'status-failed';
+      case 'disconnected': return 'status-disconnected';
+      default: return 'status-new';
+    }
+  };
 
-      <div style={{ margin: '1rem 0' }}>
-        <input
-          type="text"
-          placeholder="Enter Remote ID"
-          value={remoteId}
-          onChange={(e) => setRemoteId(e.target.value)}
-          style={{ 
-            padding: '0.8rem', 
-            width: '200px', 
-            marginRight: '1rem',
-            border: '2px solid #ddd',
-            borderRadius: '4px'
-          }}
-        />
-        <button 
-          onClick={startMedia} 
-          style={{ 
-            padding: '0.8rem 1.5rem', 
-            marginRight: '1rem',
-            backgroundColor: '#4CAF50',
-            color: 'white',
-            border: 'none',
-            borderRadius: '4px',
-            cursor: 'pointer'
-          }}
-        >
-          Start Camera
-        </button>
-        <button 
-          onClick={callPeer}
-          disabled={!remoteId.trim()}
-          style={{ 
-            padding: '0.8rem 1.5rem',
-            backgroundColor: remoteId.trim() ? '#2196F3' : '#ccc',
-            color: 'white',
-            border: 'none',
-            borderRadius: '4px',
-            cursor: remoteId.trim() ? 'pointer' : 'not-allowed'
-          }}
-        >
-          Call
-        </button>
+  return (
+    <div className="app-container">
+      <h2 className="app-title">📞 WebRTC Video Chat</h2>
+      
+      <div className="connection-info">
+        <p><strong>Your ID:</strong> {myId}</p>
+        <p>
+          <strong>Connection:</strong> 
+          <span className={`connection-status ${getConnectionStatusClass(connectionState)}`}>
+            {connectionState}
+          </span>
+          <strong>ICE:</strong> 
+          <span className={`connection-status ${getConnectionStatusClass(iceConnectionState)}`}>
+            {iceConnectionState}
+          </span>
+        </p>
       </div>
 
-      <div style={{ 
-        marginTop: '2rem', 
-        display: 'flex', 
-        justifyContent: 'center', 
-        gap: '2rem',
-        flexWrap: 'wrap'
-      }}>
-        <div style={{ textAlign: 'center' }}>
-          <h4>📹 You ({myId})</h4>
+      <div className="controls-section">
+        <div className="input-group">
+          <input
+            type="text"
+            placeholder="Enter Remote ID"
+            value={remoteId}
+            onChange={(e) => setRemoteId(e.target.value)}
+            className="remote-id-input"
+          />
+          <button 
+            onClick={startMedia} 
+            className="btn btn-start"
+          >
+            Start Camera
+          </button>
+          <button 
+            onClick={callPeer}
+            disabled={!remoteId.trim()}
+            className="btn btn-call"
+          >
+            Call
+          </button>
+        </div>
+      </div>
+
+      <div className="video-container">
+        <div className="video-section">
+          <h4 className="video-title">📹 You ({myId})</h4>
           <video
             ref={localVideoRef}
             autoPlay
             playsInline
             muted
-            width="300"
-            height="225"
-            style={{ 
-              backgroundColor: '#000',
-              border: '2px solid #ddd',
-              borderRadius: '8px'
-            }}
+            className="video-element"
           />
         </div>
-        <div style={{ textAlign: 'center' }}>
-          <h4>🧑 Remote ({remoteId || 'Not connected'})</h4>
+        <div className="video-section">
+          <h4 className="video-title">🧑 Remote ({remoteId || 'Not connected'})</h4>
           <video
             ref={remoteVideoRef}
             autoPlay
             playsInline
-            width="300"
-            height="225"
-            style={{ 
-              backgroundColor: '#000',
-              border: '2px solid #ddd',
-              borderRadius: '8px'
-            }}
+            className="video-element"
           />
         </div>
       </div>
 
-      <div style={{ marginTop: '2rem', fontSize: '0.9em', color: '#666' }}>
-        <p><strong>Instructions:</strong></p>
-        <ol style={{ textAlign: 'left', maxWidth: '600px', margin: '0 auto' }}>
+      <div className="instructions">
+        <p className="instructions-title"><strong>Instructions:</strong></p>
+        <ol className="instructions-list">
           <li>Click "Start Camera" to enable your webcam</li>
           <li>Share your ID ({myId}) with the other person</li>
           <li>Enter their ID in the input field</li>
