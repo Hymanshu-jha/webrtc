@@ -8,24 +8,11 @@ const App = () => {
   const socket = useRef(null);
   const peerConnection = useRef(null);
   const webcamStream = useRef(null);
+  const pendingCandidates = useRef([]);
 
   const [myId] = useState(() => Math.random().toString(36).substring(2, 9));
   const [remoteId, setRemoteId] = useState('');
 
-  // Wait until peerConnection is ready
-  const waitForPeerConnection = async (retries = 20) => {
-    while (!peerConnection.current && retries > 0) {
-      console.warn("⏳ Waiting for peerConnection to be ready...");
-      await new Promise(resolve => setTimeout(resolve, 100));
-      retries--;
-    }
-
-    if (!peerConnection.current) {
-      throw new Error("❌ peerConnection not initialized in time.");
-    }
-  };
-
-  // Setup WebSocket
   useEffect(() => {
     socket.current = new WebSocket(SIGNALING_SERVER);
 
@@ -47,11 +34,11 @@ const App = () => {
           break;
         case 'ice':
           if (msg.payload) {
-            try {
-              await waitForPeerConnection();
+            if (peerConnection.current.remoteDescription) {
               await peerConnection.current.addIceCandidate(msg.payload);
-            } catch (err) {
-              console.error("❌ Failed to add ICE candidate:", err);
+            } else {
+              console.warn('📥 ICE candidate received before remote description. Queuing...');
+              pendingCandidates.current.push(msg.payload);
             }
           }
           break;
@@ -79,7 +66,6 @@ const App = () => {
         console.error('🚫 Permission denied for camera/mic.');
       } else if (err.name === 'NotReadableError') {
         console.error('📷 Device already in use!');
-        return;
       } else {
         console.error('❌ Error accessing media devices:', err);
       }
@@ -92,11 +78,13 @@ const App = () => {
     });
 
     webcamStream.current.getTracks().forEach(track => {
-      peerConnection.current.addTrack(track);
+      peerConnection.current.addTrack(track, webcamStream.current);
     });
 
     peerConnection.current.onicecandidate = (event) => {
-      if (event.candidate) sendMessage('ice', event.candidate);
+      if (event.candidate) {
+        sendMessage('ice', event.candidate);
+      }
     };
 
     peerConnection.current.ontrack = (event) => {
@@ -127,6 +115,13 @@ const App = () => {
   const handleOffer = async (offer) => {
     await startMedia();
     await peerConnection.current.setRemoteDescription(offer);
+
+    // Flush any queued ICE candidates
+    for (const candidate of pendingCandidates.current) {
+      await peerConnection.current.addIceCandidate(candidate);
+    }
+    pendingCandidates.current = [];
+
     const answer = await peerConnection.current.createAnswer();
     await peerConnection.current.setLocalDescription(answer);
     sendMessage('answer', answer);
@@ -134,7 +129,7 @@ const App = () => {
 
   return (
     <div style={{ padding: '2rem', textAlign: 'center' }}>
-      <h2>📞 WebRTC Video + Screen Share ({myId})</h2>
+      <h2>📞 WebRTC Video Chat ({myId})</h2>
 
       <input
         type="text"
@@ -150,11 +145,11 @@ const App = () => {
 
       <div style={{ marginTop: '2rem', display: 'flex', justifyContent: 'center', gap: '2rem' }}>
         <div>
-          <h4>📹 Local (You) {myId}</h4>
+          <h4>📹 Local ({myId})</h4>
           <video ref={localVideoRef} autoPlay playsInline muted width="300" />
         </div>
         <div>
-          <h4>🧑 Remote {remoteId}</h4>
+          <h4>🧑 Remote ({remoteId})</h4>
           <video ref={remoteVideoRef} autoPlay playsInline width="500" />
         </div>
       </div>
