@@ -6,6 +6,8 @@ function App() {
   const peer = useRef();
   const socket = useRef();
 
+
+
  const [myId] = useState(() => Math.random().toString(36).substring(2, 9));
  const [remoteId , setRemoteId] = useState('');
 
@@ -43,9 +45,16 @@ function App() {
     };
   }, []);
 
-  const send = (data) => {
+
+  
+const send = (data) => {
+  if (socket.current && socket.current.readyState === WebSocket.OPEN) {
     socket.current.send(JSON.stringify(data));
-  };
+  } else {
+    console.warn('WebSocket not open. Message not sent:', data);
+  }
+};
+
 
   const createConnection = async (isCaller) => {
     // Get webcam and mic
