@@ -31,7 +31,12 @@ const App = () => {
 
       switch (msg.type) {
         case 'offer':
-          await handleOffer(msg.payload);
+          // Set the remote ID when we receive an offer so we know who to send the answer to
+          if (msg.from && !remoteId) {
+            console.log('📝 Setting remote ID from incoming offer:', msg.from);
+            setRemoteId(msg.from);
+          }
+          await handleOffer(msg.payload, msg.from);
           break;
         case 'answer':
           console.log('📞 Received answer');
@@ -80,10 +85,11 @@ const App = () => {
     }
   };
 
-  const sendMessage = (type, payload) => {
+  const sendMessage = (type, payload, targetId = null) => {
+    const toId = targetId || remoteId;
     if (socket.current && socket.current.readyState === WebSocket.OPEN) {
-      console.log('📤 Sending message:', { type, to: remoteId });
-      socket.current.send(JSON.stringify({ type, payload, to: remoteId }));
+      console.log('📤 Sending message:', { type, to: toId });
+      socket.current.send(JSON.stringify({ type, payload, to: toId, from: myId }));
     } else {
       console.error('❌ WebSocket not ready for sending');
     }
@@ -217,8 +223,8 @@ const App = () => {
     }
   };
 
-  const handleOffer = async (offer) => {
-    console.log('📞 Handling incoming offer');
+  const handleOffer = async (offer, fromId) => {
+    console.log('📞 Handling incoming offer from:', fromId);
     
     if (!webcamStream.current) {
       await startMedia();
@@ -239,8 +245,8 @@ const App = () => {
       const answer = await peerConnection.current.createAnswer();
       await peerConnection.current.setLocalDescription(answer);
       
-      console.log('📤 Sending answer');
-      sendMessage('answer', answer);
+      console.log('📤 Sending answer to:', fromId);
+      sendMessage('answer', answer, fromId);
     } catch (err) {
       console.error('❌ Error handling offer:', err);
     }
