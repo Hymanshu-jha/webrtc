@@ -130,32 +130,47 @@ peerConnection.current.ontrack = (event) => {
   };
 
   return (
-    <div style={{ padding: '2rem', textAlign: 'center' }}>
-      <h2>📞 WebRTC Video Chat ({myId})</h2>
+<div style={{ padding: '2rem', textAlign: 'center' }}>
+  <h2>📞 WebRTC Video Chat ({myId})</h2>
 
-      <input
-        type="text"
-        placeholder="Remote ID"
-        value={remoteId}
-        onChange={(e) => setRemoteId(e.target.value)}
-        style={{ padding: '0.5rem', width: '200px' }}
+  <input
+    type="text"
+    placeholder="Remote ID"
+    value={remoteId}
+    onChange={(e) => setRemoteId(e.target.value)}
+    style={{ padding: '0.5rem', width: '200px' }}
+  />
+  <br /><br />
+
+  <button onClick={startMedia} style={{ marginRight: '1rem' }}>Start Media</button>
+  <button onClick={callPeer}>Call</button>
+
+  <div style={{ marginTop: '2rem', display: 'flex', justifyContent: 'center', gap: '2rem' }}>
+    <div>
+      <h4>📹 Local ({myId})</h4>
+      <video
+        ref={localVideoRef}
+        autoPlay
+        playsInline
+        muted
+        width="300"
+        style={{ backgroundColor: 'black' }} // optional: to visualize video space
       />
-      <br /><br />
-
-      <button onClick={startMedia} style={{ marginRight: '1rem' }}>Start Media</button>
-      <button onClick={callPeer}>Call</button>
-
-      <div style={{ marginTop: '2rem', display: 'flex', justifyContent: 'center', gap: '2rem' }}>
-        <div>
-          <h4>📹 Local ({myId})</h4>
-          <video ref={localVideoRef} autoPlay playsInline muted width="300" />
-        </div>
-        <div>
-          <h4>🧑 Remote ({remoteId})</h4>
-          <video ref={remoteVideoRef} autoPlay playsInline width="500" />
-        </div>
-      </div>
     </div>
+    <div>
+      <h4>🧑 Remote ({remoteId})</h4>
+      <video
+        ref={remoteVideoRef}
+        autoPlay
+        playsInline
+        muted={false}
+        width="500"
+        style={{ backgroundColor: 'black' }} // optional: useful for debugging
+      />
+    </div>
+  </div>
+</div>
+
   );
 };
 
