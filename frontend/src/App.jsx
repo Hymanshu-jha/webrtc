@@ -1,6 +1,6 @@
 import React, { useEffect, useRef, useState } from 'react';
 
-const SIGNALING_SERVER = 'wss:///webrtc-du7f.onrender.com';
+const SIGNALING_SERVER = 'wss://webrtc-du7f.onrender.com';
 
 
 
@@ -99,11 +99,16 @@ const startMedia = async () => {
     };
   };
 
-  const callPeer = async () => {
-    const offer = await peerConnection.current.createOffer();
-    await peerConnection.current.setLocalDescription(offer);
-    sendMessage('offer', offer);
-  };
+const callPeer = async () => {
+  if (!webcamStream.current) {
+    console.warn("⚠️ Webcam not started. Starting now...");
+    await startMedia();
+  }
+  const offer = await peerConnection.current.createOffer();
+  await peerConnection.current.setLocalDescription(offer);
+  sendMessage('offer', offer);
+};
+
 
   const handleOffer = async (offer) => {
     await startMedia();
