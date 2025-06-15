@@ -105,11 +105,20 @@ const callPeer = async () => {
     console.warn("⚠️ Webcam not started. Starting now...");
     await startMedia();
   }
-  const offer = await peerConnection.current.createOffer();
-  await peerConnection.current.setLocalDescription(offer);
-  sendMessage('offer', offer);
-};
 
+  if (!webcamStream.current || !peerConnection.current) {
+    console.error("❌ Cannot call peer: media or peerConnection not ready.");
+    return;
+  }
+
+  try {
+    const offer = await peerConnection.current.createOffer();
+    await peerConnection.current.setLocalDescription(offer);
+    sendMessage('offer', offer);
+  } catch (err) {
+    console.error("❌ Error creating offer:", err);
+  }
+};
 
   const handleOffer = async (offer) => {
     await startMedia();
