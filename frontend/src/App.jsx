@@ -2,7 +2,7 @@ import React, { useEffect, useRef, useState } from 'react';
 
 const SIGNALING_SERVER = 'wss://webrtc-du7f.onrender.com';
 
-const PORT = process.env.PORT || 5050;
+const PORT = 5050;
 
 
 
