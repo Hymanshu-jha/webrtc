@@ -146,11 +146,11 @@ const callPeer = async () => {
 
       <div style={{ marginTop: '2rem', display: 'flex', justifyContent: 'center', gap: '2rem' }}>
         <div>
-          <h4>📹 Local (You)</h4>
+          <h4>📹 Local (You) {myId}</h4>
           <video ref={localVideoRef} autoPlay playsInline muted width="300" />
         </div>
         <div>
-          <h4>🧑 Remote</h4>
+          <h4>🧑 Remote {remoteId}</h4>
           <video ref={remoteVideoRef} autoPlay playsInline width="500" />
         </div>
       </div>
