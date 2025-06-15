@@ -16,9 +16,11 @@ function App() {
     socket.current = new WebSocket('wss://webrtc-du7f.onrender.com/');
 
     
-  socket.current.onopen = () => {
-    send({ type: 'join', payload: { id: myId } });
-  };
+socket.current.onopen = () => {
+  setIsSocketReady(true);
+  send({ type: 'join', payload: { id: myId } });
+};
+
 
     // Listen for messages (offer, answer, ice)
     socket.current.onmessage = async (msg) => {
@@ -57,6 +59,11 @@ const send = (data) => {
 
 
   const createConnection = async (isCaller) => {
+
+  if (!isSocketReady) {
+    console.warn('Socket not ready yet. Please wait...');
+    return;
+  }
     // Get webcam and mic
     const stream = await navigator.mediaDevices.getUserMedia({ video: true, audio: true });
     localVideo.current.srcObject = stream;
