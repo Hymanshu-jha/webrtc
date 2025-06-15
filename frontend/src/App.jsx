@@ -10,6 +10,7 @@ function App() {
 
  const [myId] = useState(() => Math.random().toString(36).substring(2, 9));
  const [remoteId , setRemoteId] = useState('');
+ const [isSocketReady , setIsSocketReady] = useState(false);
 
   useEffect(() => {
     // Connect to signaling server
