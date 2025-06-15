@@ -1,6 +1,6 @@
 import React, { useEffect, useRef, useState } from 'react';
 
-const SIGNALING_SERVER = 'ws://192.168.43.106:5050';
+const SIGNALING_SERVER = 'wss:///webrtc-du7f.onrender.com';
 
 
 
