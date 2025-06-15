@@ -13,7 +13,7 @@ function App() {
 
   useEffect(() => {
     // Connect to signaling server
-    socket.current = new WebSocket('ws://webrtc-du7f.onrender.com/');
+    socket.current = new WebSocket('wss://webrtc-du7f.onrender.com/');
 
     
   socket.current.onopen = () => {
