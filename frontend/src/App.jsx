@@ -88,11 +88,11 @@ function App() {
 
       <div style={{ display: 'flex', marginTop: 20, gap: 10 }}>
         <div>
-          <h3>You 👦</h3>
+          <h3>You 👦 {`myId: ${myId}`}</h3>
           <video ref={localVideo} autoPlay muted playsInline width={300} />
         </div>
         <div>
-          <h3>Friend 👧</h3>
+          <h3>Friend 👧 {`remoteId: ${remoteId}`}</h3>
           <video ref={remoteVideo} autoPlay playsInline width={300} />
         </div>
       </div>
