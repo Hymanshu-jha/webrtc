@@ -12,6 +12,8 @@ const App = () => {
 
   const [myId] = useState(() => Math.random().toString(36).substring(2, 9));
   const [remoteId, setRemoteId] = useState('');
+  const [connectionState, setConnectionState] = useState('new');
+  const [iceConnectionState, setIceConnectionState] = useState('new');
 
   useEffect(() => {
     socket.current = new WebSocket(SIGNALING_SERVER);
@@ -23,6 +25,8 @@ const App = () => {
 
     socket.current.onmessage = async (event) => {
       const msg = JSON.parse(event.data);
+      console.log('📨 Received message:', msg);
+      
       if (msg.to !== myId) return;
 
       switch (msg.type) {
@@ -30,11 +34,15 @@ const App = () => {
           await handleOffer(msg.payload);
           break;
         case 'answer':
+          console.log('📞 Received answer');
           await peerConnection.current.setRemoteDescription(msg.payload);
+          // Process pending ICE candidates after setting remote description
+          await processPendingCandidates();
           break;
         case 'ice':
           if (msg.payload) {
-            if (peerConnection.current.remoteDescription) {
+            if (peerConnection.current?.remoteDescription) {
+              console.log('❄️ Adding ICE candidate');
               await peerConnection.current.addIceCandidate(msg.payload);
             } else {
               console.warn('📥 ICE candidate received before remote description. Queuing...');
@@ -47,19 +55,66 @@ const App = () => {
       }
     };
 
+    socket.current.onerror = (error) => {
+      console.error('🔴 WebSocket error:', error);
+    };
+
+    socket.current.onclose = () => {
+      console.log('🔌 WebSocket connection closed');
+    };
+
     return () => {
-      socket.current.close();
+      cleanup();
     };
   }, [myId]);
 
+  const cleanup = () => {
+    if (webcamStream.current) {
+      webcamStream.current.getTracks().forEach(track => track.stop());
+    }
+    if (peerConnection.current) {
+      peerConnection.current.close();
+    }
+    if (socket.current) {
+      socket.current.close();
+    }
+  };
+
   const sendMessage = (type, payload) => {
-    socket.current.send(JSON.stringify({ type, payload, to: remoteId }));
+    if (socket.current && socket.current.readyState === WebSocket.OPEN) {
+      console.log('📤 Sending message:', { type, to: remoteId });
+      socket.current.send(JSON.stringify({ type, payload, to: remoteId }));
+    } else {
+      console.error('❌ WebSocket not ready for sending');
+    }
+  };
+
+  const processPendingCandidates = async () => {
+    console.log(`🔄 Processing ${pendingCandidates.current.length} pending ICE candidates`);
+    for (const candidate of pendingCandidates.current) {
+      try {
+        await peerConnection.current.addIceCandidate(candidate);
+        console.log('✅ Added pending ICE candidate');
+      } catch (err) {
+        console.error('❌ Error adding pending ICE candidate:', err);
+      }
+    }
+    pendingCandidates.current = [];
   };
 
   const startMedia = async () => {
     try {
-      webcamStream.current = await navigator.mediaDevices.getUserMedia({ video: true, audio: true });
-      localVideoRef.current.srcObject = webcamStream.current;
+      console.log('🎥 Starting media...');
+      webcamStream.current = await navigator.mediaDevices.getUserMedia({ 
+        video: { width: 640, height: 480 }, 
+        audio: true 
+      });
+      
+      if (localVideoRef.current) {
+        localVideoRef.current.srcObject = webcamStream.current;
+      }
+      
+      console.log('✅ Media started successfully');
       setupPeerConnection();
     } catch (err) {
       if (err.name === 'NotAllowedError') {
@@ -73,28 +128,70 @@ const App = () => {
   };
 
   const setupPeerConnection = () => {
+    if (peerConnection.current) {
+      peerConnection.current.close();
+    }
+
+    console.log('🔗 Setting up peer connection...');
     peerConnection.current = new RTCPeerConnection({
-      iceServers: [{ urls: 'stun:stun.l.google.com:19302' }],
+      iceServers: [
+        { urls: 'stun:stun.l.google.com:19302' },
+        { urls: 'stun:stun1.l.google.com:19302' }
+      ],
     });
 
-    webcamStream.current.getTracks().forEach(track => {
-      peerConnection.current.addTrack(track, webcamStream.current);
-    });
+    // Add local stream tracks
+    if (webcamStream.current) {
+      webcamStream.current.getTracks().forEach(track => {
+        console.log('➕ Adding track:', track.kind);
+        peerConnection.current.addTrack(track, webcamStream.current);
+      });
+    }
 
+    // Handle ICE candidates
     peerConnection.current.onicecandidate = (event) => {
       if (event.candidate) {
+        console.log('❄️ Sending ICE candidate');
         sendMessage('ice', event.candidate);
+      } else {
+        console.log('❄️ All ICE candidates sent');
       }
     };
 
-peerConnection.current.ontrack = (event) => {
-  console.log('🎥 Remote stream received:', event.streams[0]);
-  remoteVideoRef.current.srcObject = event.streams[0];
-};
+    // Handle remote stream
+    peerConnection.current.ontrack = (event) => {
+      console.log('🎥 Remote stream received:', event.streams[0]);
+      if (remoteVideoRef.current && event.streams[0]) {
+        remoteVideoRef.current.srcObject = event.streams[0];
+        console.log('✅ Remote video element updated');
+      }
+    };
 
+    // Connection state monitoring
+    peerConnection.current.onconnectionstatechange = () => {
+      const state = peerConnection.current.connectionState;
+      console.log('🔗 Connection state:', state);
+      setConnectionState(state);
+    };
+
+    peerConnection.current.oniceconnectionstatechange = () => {
+      const state = peerConnection.current.iceConnectionState;
+      console.log('❄️ ICE connection state:', state);
+      setIceConnectionState(state);
+    };
+
+    // Handle data channel if needed
+    peerConnection.current.ondatachannel = (event) => {
+      console.log('📡 Data channel received:', event.channel.label);
+    };
   };
 
   const callPeer = async () => {
+    if (!remoteId.trim()) {
+      console.error('❌ Please enter a remote ID');
+      return;
+    }
+
     if (!webcamStream.current) {
       console.warn("⚠️ Webcam not started. Starting now...");
       await startMedia();
@@ -106,8 +203,14 @@ peerConnection.current.ontrack = (event) => {
     }
 
     try {
-      const offer = await peerConnection.current.createOffer();
+      console.log('📞 Creating offer...');
+      const offer = await peerConnection.current.createOffer({
+        offerToReceiveAudio: true,
+        offerToReceiveVideo: true
+      });
+      
       await peerConnection.current.setLocalDescription(offer);
+      console.log('📤 Sending offer to:', remoteId);
       sendMessage('offer', offer);
     } catch (err) {
       console.error("❌ Error creating offer:", err);
@@ -115,62 +218,134 @@ peerConnection.current.ontrack = (event) => {
   };
 
   const handleOffer = async (offer) => {
-    await startMedia();
-    await peerConnection.current.setRemoteDescription(offer);
-
-    // Flush any queued ICE candidates
-    for (const candidate of pendingCandidates.current) {
-      await peerConnection.current.addIceCandidate(candidate);
+    console.log('📞 Handling incoming offer');
+    
+    if (!webcamStream.current) {
+      await startMedia();
     }
-    pendingCandidates.current = [];
 
-    const answer = await peerConnection.current.createAnswer();
-    await peerConnection.current.setLocalDescription(answer);
-    sendMessage('answer', answer);
+    if (!peerConnection.current) {
+      setupPeerConnection();
+    }
+
+    try {
+      await peerConnection.current.setRemoteDescription(offer);
+      console.log('✅ Remote description set');
+
+      // Process pending ICE candidates
+      await processPendingCandidates();
+
+      console.log('📞 Creating answer...');
+      const answer = await peerConnection.current.createAnswer();
+      await peerConnection.current.setLocalDescription(answer);
+      
+      console.log('📤 Sending answer');
+      sendMessage('answer', answer);
+    } catch (err) {
+      console.error('❌ Error handling offer:', err);
+    }
   };
 
   return (
-<div style={{ padding: '2rem', textAlign: 'center' }}>
-  <h2>📞 WebRTC Video Chat ({myId})</h2>
+    <div style={{ padding: '2rem', textAlign: 'center', fontFamily: 'Arial, sans-serif' }}>
+      <h2>📞 WebRTC Video Chat</h2>
+      <p><strong>Your ID:</strong> {myId}</p>
+      <p><strong>Connection:</strong> {connectionState} | <strong>ICE:</strong> {iceConnectionState}</p>
 
-  <input
-    type="text"
-    placeholder="Remote ID"
-    value={remoteId}
-    onChange={(e) => setRemoteId(e.target.value)}
-    style={{ padding: '0.5rem', width: '200px' }}
-  />
-  <br /><br />
+      <div style={{ margin: '1rem 0' }}>
+        <input
+          type="text"
+          placeholder="Enter Remote ID"
+          value={remoteId}
+          onChange={(e) => setRemoteId(e.target.value)}
+          style={{ 
+            padding: '0.8rem', 
+            width: '200px', 
+            marginRight: '1rem',
+            border: '2px solid #ddd',
+            borderRadius: '4px'
+          }}
+        />
+        <button 
+          onClick={startMedia} 
+          style={{ 
+            padding: '0.8rem 1.5rem', 
+            marginRight: '1rem',
+            backgroundColor: '#4CAF50',
+            color: 'white',
+            border: 'none',
+            borderRadius: '4px',
+            cursor: 'pointer'
+          }}
+        >
+          Start Camera
+        </button>
+        <button 
+          onClick={callPeer}
+          disabled={!remoteId.trim()}
+          style={{ 
+            padding: '0.8rem 1.5rem',
+            backgroundColor: remoteId.trim() ? '#2196F3' : '#ccc',
+            color: 'white',
+            border: 'none',
+            borderRadius: '4px',
+            cursor: remoteId.trim() ? 'pointer' : 'not-allowed'
+          }}
+        >
+          Call
+        </button>
+      </div>
 
-  <button onClick={startMedia} style={{ marginRight: '1rem' }}>Start Media</button>
-  <button onClick={callPeer}>Call</button>
+      <div style={{ 
+        marginTop: '2rem', 
+        display: 'flex', 
+        justifyContent: 'center', 
+        gap: '2rem',
+        flexWrap: 'wrap'
+      }}>
+        <div style={{ textAlign: 'center' }}>
+          <h4>📹 You ({myId})</h4>
+          <video
+            ref={localVideoRef}
+            autoPlay
+            playsInline
+            muted
+            width="300"
+            height="225"
+            style={{ 
+              backgroundColor: '#000',
+              border: '2px solid #ddd',
+              borderRadius: '8px'
+            }}
+          />
+        </div>
+        <div style={{ textAlign: 'center' }}>
+          <h4>🧑 Remote ({remoteId || 'Not connected'})</h4>
+          <video
+            ref={remoteVideoRef}
+            autoPlay
+            playsInline
+            width="300"
+            height="225"
+            style={{ 
+              backgroundColor: '#000',
+              border: '2px solid #ddd',
+              borderRadius: '8px'
+            }}
+          />
+        </div>
+      </div>
 
-  <div style={{ marginTop: '2rem', display: 'flex', justifyContent: 'center', gap: '2rem' }}>
-    <div>
-      <h4>📹 Local ({myId})</h4>
-      <video
-        ref={localVideoRef}
-        autoPlay
-        playsInline
-        muted
-        width="300"
-        style={{ backgroundColor: 'black' }} // optional: to visualize video space
-      />
+      <div style={{ marginTop: '2rem', fontSize: '0.9em', color: '#666' }}>
+        <p><strong>Instructions:</strong></p>
+        <ol style={{ textAlign: 'left', maxWidth: '600px', margin: '0 auto' }}>
+          <li>Click "Start Camera" to enable your webcam</li>
+          <li>Share your ID ({myId}) with the other person</li>
+          <li>Enter their ID in the input field</li>
+          <li>Click "Call" to initiate the connection</li>
+        </ol>
+      </div>
     </div>
-    <div>
-      <h4>🧑 Remote ({remoteId})</h4>
-      <video
-        ref={remoteVideoRef}
-        autoPlay
-        playsInline
-        muted={false}
-        width="500"
-        style={{ backgroundColor: 'black' }} // optional: useful for debugging
-      />
-    </div>
-  </div>
-</div>
-
   );
 };
 
