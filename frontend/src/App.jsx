@@ -1,3 +1,13 @@
+  //caller will initiate the call(offer) with other's id 
+  //caller's id will be ceated and will be sent 
+  //other will receive the from id of caller
+  //we do not need to enter remoteId manually on other's side
+  //then descriptions will be saved
+  //then on the other's page , we will show (answer call) only
+  //on callers page only show (start call)
+  //after receiving offer other will answer the call by createAnswer() function call
+
+
 import React, { useEffect, useRef, useState } from 'react';
 
 function App() {
@@ -6,32 +16,29 @@ function App() {
   const peer = useRef();
   const socket = useRef();
 
-
-
- const [myId] = useState(() => Math.random().toString(36).substring(2, 9));
- const [remoteId , setRemoteId] = useState('');
- const [isSocketReady , setIsSocketReady] = useState(false);
+  const [myId] = useState(() => Math.random().toString(36).substring(2, 9));
+  const [remoteId, setRemoteId] = useState(''); // Changed from ref to state
+  const [isSocketReady, setIsSocketReady] = useState(false);
 
   useEffect(() => {
     // Connect to signaling server
     socket.current = new WebSocket('wss://webrtc-du7f.onrender.com/');
 
-    
-socket.current.onopen = () => {
-  setIsSocketReady(true);
-  send({ type: 'join', payload: { id: myId } });
-};
-
+    socket.current.onopen = () => {
+      setIsSocketReady(true);
+      send({ type: 'join' });
+    };
 
     // Listen for messages (offer, answer, ice)
     socket.current.onmessage = async (msg) => {
       const data = JSON.parse(msg.data);
 
       if (data.type === 'offer') {
+        setRemoteId(data.from);
         await peer.current.setRemoteDescription(data.offer);
         const answer = await peer.current.createAnswer();
         await peer.current.setLocalDescription(answer);
-        send({ type: 'answer', answer  , to: remoteId , from: myId});
+        send({ type: 'answer', answer, to: data.from, from: myId }); // Use data.from instead of remoteId
       }
 
       if (data.type === 'answer') {
@@ -46,25 +53,22 @@ socket.current.onopen = () => {
         }
       }
     };
-  }, []);
+  }, [myId]); // Add myId to dependency array
 
-
-
-const send = (data) => {
-  if (socket.current && socket.current.readyState === WebSocket.OPEN) {
-    socket.current.send(JSON.stringify(data));
-  } else {
-    console.warn('WebSocket not open. Message not sent:', data);
-  }
-};
-
+  const send = (data) => {
+    if (socket.current && socket.current.readyState === WebSocket.OPEN) {
+      socket.current.send(JSON.stringify(data));
+    } else {
+      console.warn('WebSocket not open. Message not sent:', data);
+    }
+  };
 
   const createConnection = async (isCaller) => {
+    if (!isSocketReady) {
+      console.warn('Socket not ready yet. Please wait...');
+      return;
+    }
 
-  if (!isSocketReady) {
-    console.warn('Socket not ready yet. Please wait...');
-    return;
-  }
     // Get webcam and mic
     const stream = await navigator.mediaDevices.getUserMedia({ video: true, audio: true });
     localVideo.current.srcObject = stream;
@@ -76,11 +80,14 @@ const send = (data) => {
 
     // Send ice candidates to other peer
     peer.current.onicecandidate = (e) => {
-      if (e.candidate) send({ type: 'ice', ice: e.candidate });
+      if (e.candidate) {
+        send({ type: 'ice', ice: e.candidate, to: remoteId, from: myId }); // Add routing info
+      }
     };
 
     // Show remote stream when available
     peer.current.ontrack = (e) => {
+      console.log("Remote track received 🎥", e.streams);
       remoteVideo.current.srcObject = e.streams[0];
     };
 
@@ -92,13 +99,18 @@ const send = (data) => {
     if (isCaller) {
       const offer = await peer.current.createOffer();
       await peer.current.setLocalDescription(offer);
-      send({ type: 'offer', offer });
+      send({ type: 'offer', offer, to: remoteId, from: myId }); // Add routing info
     }
   };
 
   return (
     <div style={{ padding: 20 }}>
-      <input type="text" value={remoteId} onChange={(e) => setRemoteId(e.target.value)} placeholder="Enter friend's ID" />
+      <input 
+        type="text" 
+        value={remoteId} 
+        onChange={(e) => setRemoteId(e.target.value)} // Fixed onChange
+        placeholder="Enter friend's ID" 
+      />
       <h2>🎥 Simple WebRTC</h2>
       <button onClick={() => createConnection(true)}>Start Call</button>
       <button onClick={() => createConnection(false)}>Answer Call</button>

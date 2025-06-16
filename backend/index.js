@@ -31,7 +31,7 @@ wss.on('connection', (socket) => {
   socket.on('message', (data) => {
     try {
       const msg = JSON.parse(data);
-      const { type, payload, to } = msg;
+      const { type, payload, to , from } = msg;
 
       if (type === 'join') {
         clients.set(payload.id, socket);
