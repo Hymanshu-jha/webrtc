@@ -199,6 +199,18 @@ function App() {
     }
   };
 
+
+
+  const handleConnection = (e) => {
+    e.preventDefault();
+  
+     if (!peerConnectionRef.current) {
+        peerConnectionRef.current = new RTCPeerConnection();
+      }
+      
+
+  }
+
   return (
     <>
       <div style={{margin: '10px 0'}}>
@@ -263,6 +275,9 @@ function App() {
           <p>Someone wants to video call you!</p>
         </div>
       )}
+
+
+       <button onClick={handleConnection}>Create Connection</button>
     </>
   );
 }
