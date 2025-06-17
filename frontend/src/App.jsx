@@ -1,131 +1,231 @@
-  //caller will initiate the call(offer) with other's id 
-  //caller's id will be ceated and will be sent 
-  //other will receive the from id of caller
-  //we do not need to enter remoteId manually on other's side
-  //then descriptions will be saved
-  //then on the other's page , we will show (answer call) only
-  //on callers page only show (start call)
-  //after receiving offer other will answer the call by createAnswer() function call
-
-
-import React, { useEffect, useRef, useState } from 'react';
+import React, { useRef, useState, useEffect } from 'react';
 
 function App() {
-  const localVideo = useRef();
-  const remoteVideo = useRef();
-  const peer = useRef();
-  const socket = useRef();
-
+  const [startButton, setStartButton] = useState(false);
+  const [answerButton, setAnswerButton] = useState(false);
+  const [incomingOffer, setIncomingOffer] = useState(null);
+  
   const [myId] = useState(() => Math.random().toString(36).substring(2, 9));
-  const [remoteId, setRemoteId] = useState(''); // Changed from ref to state
-  const [isSocketReady, setIsSocketReady] = useState(false);
+  const [remoteId, setRemoteId] = useState(null);
+  
+  const socketRef = useRef(null);
+  const remoteIdRef = useRef(null);
+  const localVideoRef = useRef();
+  const remoteVideoRef = useRef();
+  const peerConnectionRef = useRef(null);
+  
+  const BACKEND_URL = 'wss://webrtc-du7f.onrender.com/';
 
-  useEffect(() => {
-    // Connect to signaling server
-    socket.current = new WebSocket('wss://webrtc-du7f.onrender.com/');
-
-    socket.current.onopen = () => {
-      setIsSocketReady(true);
-      send({ type: 'join' });
-    };
-
-    // Listen for messages (offer, answer, ice)
-    socket.current.onmessage = async (msg) => {
-      const data = JSON.parse(msg.data);
-
-      if (data.type === 'offer') {
-        setRemoteId(data.from);
-        await peer.current.setRemoteDescription(data.offer);
-        const answer = await peer.current.createAnswer();
-        await peer.current.setLocalDescription(answer);
-        send({ type: 'answer', answer, to: data.from, from: myId }); // Use data.from instead of remoteId
+  // Separate function to handle creating offer
+  const createOfferHandler = async () => {
+    try {
+      // Create RTCPeerConnection if it doesn't exist
+      if (!peerConnectionRef.current) {
+        peerConnectionRef.current = new RTCPeerConnection();
       }
-
-      if (data.type === 'answer') {
-        await peer.current.setRemoteDescription(data.answer);
-      }
-
-      if (data.type === 'ice') {
-        try {
-          await peer.current.addIceCandidate(data.ice);
-        } catch (e) {
-          console.error('ICE error', e);
+      
+      // Setup ICE candidate handling
+      peerConnectionRef.current.onicecandidate = (event) => {
+        if (event.candidate) {
+          socketRef.current.send(JSON.stringify({
+            type: 'ice',
+            candidate: event.candidate,
+            to: remoteIdRef.current,
+            from: myId
+          }));
         }
-      }
-    };
-  }, [myId]); // Add myId to dependency array
-
-  const send = (data) => {
-    if (socket.current && socket.current.readyState === WebSocket.OPEN) {
-      socket.current.send(JSON.stringify(data));
-    } else {
-      console.warn('WebSocket not open. Message not sent:', data);
+      };
+      
+      // Get user media
+      const stream = await navigator.mediaDevices.getUserMedia({ video: true, audio: true });
+      localVideoRef.current.srcObject = stream;
+      
+      // Add local stream to peer connection
+      stream.getTracks().forEach(track => {
+        peerConnectionRef.current.addTrack(track, stream);
+      });
+      
+      // Setup remote stream handling
+      peerConnectionRef.current.ontrack = (event) => {
+        remoteVideoRef.current.srcObject = event.streams[0];
+      };
+      
+      // Create offer
+      const offer = await peerConnectionRef.current.createOffer();
+      
+      // Set local description
+      await peerConnectionRef.current.setLocalDescription(offer);
+      
+      // Send offer
+      socketRef.current.send(JSON.stringify({
+        type: 'offer',
+        offer: offer,
+        to: remoteIdRef.current,
+        from: myId
+      }));
+      
+      console.log('Offer created and sent');
+    } catch (error) {
+      console.error('Error creating offer:', error);
     }
   };
 
-  const createConnection = async (isCaller) => {
-    if (!isSocketReady) {
-      console.warn('Socket not ready yet. Please wait...');
-      return;
+  // Separate function to handle creating answer
+  const createAnswerHandler = async (receivedOffer) => {
+    try {
+      // Create RTCPeerConnection if it doesn't exist
+      if (!peerConnectionRef.current) {
+        peerConnectionRef.current = new RTCPeerConnection();
+      }
+      
+      // Setup ICE candidate handling
+      peerConnectionRef.current.onicecandidate = (event) => {
+        if (event.candidate) {
+          socketRef.current.send(JSON.stringify({
+            type: 'ice',
+            candidate: event.candidate,
+            to: remoteIdRef.current,
+            from: myId
+          }));
+        }
+      };
+      
+      // Get user media
+      const stream = await navigator.mediaDevices.getUserMedia({ video: true, audio: true });
+      localVideoRef.current.srcObject = stream;
+      
+      // Add local stream to peer connection
+      stream.getTracks().forEach(track => {
+        peerConnectionRef.current.addTrack(track, stream);
+      });
+      
+      // Setup remote stream handling
+      peerConnectionRef.current.ontrack = (event) => {
+        remoteVideoRef.current.srcObject = event.streams[0];
+      };
+      
+      // Set remote description
+      await peerConnectionRef.current.setRemoteDescription(receivedOffer);
+      
+      // Create answer
+      const answer = await peerConnectionRef.current.createAnswer();
+      
+      // Set local description
+      await peerConnectionRef.current.setLocalDescription(answer);
+      
+      // Send answer
+      socketRef.current.send(JSON.stringify({
+        type: 'answer',
+        answer: answer,
+        to: remoteIdRef.current,
+        from: myId
+      }));
+      
+      console.log('Answer created and sent');
+    } catch (error) {
+      console.error('Error creating answer:', error);
     }
+  };
 
-    // Get webcam and mic
-    const stream = await navigator.mediaDevices.getUserMedia({ video: true, audio: true });
-    localVideo.current.srcObject = stream;
+  useEffect(() => {
+    socketRef.current = new WebSocket(BACKEND_URL);
 
-    // Create WebRTC peer
-    peer.current = new RTCPeerConnection({
-      iceServers: [{ urls: 'stun:stun.l.google.com:19302' }],
-    });
+    socketRef.current.onopen = () => {
+      console.log(`client with id ${myId} connected`);
+    };
 
-    // Send ice candidates to other peer
-    peer.current.onicecandidate = (e) => {
-      if (e.candidate) {
-        send({ type: 'ice', ice: e.candidate, to: remoteId, from: myId }); // Add routing info
+    socketRef.current.onmessage = async (msg) => {
+      const data = JSON.parse(msg.data);
+
+      if (!data) {
+        console.log('no data');
+        return;
+      }
+
+      remoteIdRef.current = data?.from;
+      setRemoteId(remoteIdRef?.current || null);
+
+      if (data?.type === 'offer') {
+        // Store incoming offer and show answer button
+        setIncomingOffer(data.offer);
+        setAnswerButton(true);
+        console.log('Incoming call received');
+        
+      } else if (data.type === 'answer') {
+        // Handle incoming answer
+        if (peerConnectionRef.current) {
+          await peerConnectionRef.current.setRemoteDescription(data.answer);
+          console.log('Answer received and set');
+        }
+        
+      } else if (data.type === 'ice') {
+        // Handle ICE candidates
+        if (peerConnectionRef.current) {
+          await peerConnectionRef.current.addIceCandidate(data.candidate);
+          console.log('ICE candidate added');
+        }
       }
     };
 
-    // Show remote stream when available
-    peer.current.ontrack = (e) => {
-      console.log("Remote track received 🎥", e.streams);
-      remoteVideo.current.srcObject = e.streams[0];
+    return () => {
+      if (socketRef.current) {
+        socketRef.current.close();
+      }
     };
+  }, [myId]);
 
-    // Add your tracks (video/audio) to the peer
-    stream.getTracks().forEach((track) => {
-      peer.current.addTrack(track, stream);
-    });
+  // Button handlers - now just call the separate functions
+  const handleStartCall = async (e) => {
+    e.preventDefault();
+    await createOfferHandler();
+  };
 
-    if (isCaller) {
-      const offer = await peer.current.createOffer();
-      await peer.current.setLocalDescription(offer);
-      send({ type: 'offer', offer, to: remoteId, from: myId }); // Add routing info
+  const handleAnswerCall = async (e) => {
+    e.preventDefault();
+    if (incomingOffer) {
+      await createAnswerHandler(incomingOffer);
+      setIncomingOffer(null);
+      setAnswerButton(false);
+    } else {
+      console.log('No incoming offer to answer');
     }
   };
 
   return (
-    <div style={{ padding: 20 }}>
-      <input 
-        type="text" 
-        value={remoteId} 
-        onChange={(e) => setRemoteId(e.target.value)} // Fixed onChange
-        placeholder="Enter friend's ID" 
-      />
-      <h2>🎥 Simple WebRTC</h2>
-      <button onClick={() => createConnection(true)}>Start Call</button>
-      <button onClick={() => createConnection(false)}>Answer Call</button>
-
-      <div style={{ display: 'flex', marginTop: 20, gap: 10 }}>
-        <div>
-          <h3>You 👦 {`myId: ${myId}`}</h3>
-          <video ref={localVideo} autoPlay muted playsInline width={300} />
-        </div>
-        <div>
-          <h3>Friend 👧 {`remoteId: ${remoteId}`}</h3>
-          <video ref={remoteVideo} autoPlay playsInline width={300} />
-        </div>
+    <>
+      <h2>My ID: {myId}</h2>
+      <video ref={localVideoRef} autoPlay muted style={{width: '300px', height: '200px'}}>You</video>
+      
+      <h2>Remote ID: {remoteId}</h2>
+      <video ref={remoteVideoRef} autoPlay style={{width: '300px', height: '200px'}}>Friend</video>
+      
+      <div>
+        <button onClick={handleStartCall}>Start Call</button>
+        <button 
+          onClick={handleAnswerCall} 
+          disabled={!answerButton}
+          style={{
+            backgroundColor: answerButton ? '#4CAF50' : '#ccc',
+            color: answerButton ? 'white' : '#666'
+          }}
+        >
+          {answerButton ? 'Answer Call' : 'No Incoming Call'}
+        </button>
       </div>
-    </div>
+      
+      {incomingOffer && (
+        <div style={{
+          backgroundColor: '#f0f8ff',
+          padding: '10px',
+          margin: '10px 0',
+          border: '2px solid #007bff',
+          borderRadius: '5px'
+        }}>
+          <h3>📞 Incoming Call from {remoteId}</h3>
+          <p>Someone wants to video call you!</p>
+        </div>
+      )}
+    </>
   );
 }
 

@@ -1,0 +1,28 @@
+// caller
+// before calling , the caller must create RTCconnection 
+// SETUP ICE CANDIDATE HANDLING (MISSING STEP) - Must be early!
+// now get user media
+// ADD LOCAL STREAM TO PEER CONNECTION (MISSING STEP)
+// SETUP REMOTE STREAM HANDLING (MISSING STEP)
+// create offer
+// now setlocaldescription
+// now send offer
+const handleStartCall = (e) => {
+ e.preventDefault();
+  
+};
+
+// callee
+// to accept offer create RTCconnection
+// SETUP ICE CANDIDATE HANDLING (MISSING STEP) - Must be early!
+// get user media
+// ADD LOCAL STREAM TO PEER CONNECTION (MISSING STEP)
+// SETUP REMOTE STREAM HANDLING (MISSING STEP)
+// now setremotedescription
+// now create answer
+// now setlocaldescription
+// now send answer
+const handleAnswerCall = (e) => {
+ e.preventDefault();
+
+};
