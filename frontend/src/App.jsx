@@ -6,7 +6,8 @@ function App() {
   const [incomingOffer, setIncomingOffer] = useState(null);
   
   const [myId] = useState(() => Math.random().toString(36).substring(2, 9));
-  const [remoteId, setRemoteId] = useState(null);
+  const [remoteId, setRemoteId] = useState('');
+  const [connectedRemoteId, setConnectedRemoteId] = useState(null);
   
   const socketRef = useRef(null);
   const remoteIdRef = useRef(null);
@@ -14,7 +15,7 @@ function App() {
   const remoteVideoRef = useRef();
   const peerConnectionRef = useRef(null);
   
-  const BACKEND_URL = 'wss://webrtc-du7f.onrender.com/';
+  const BACKEND_URL = '';
 
   // Separate function to handle creating offer
   const createOfferHandler = async () => {
@@ -142,8 +143,11 @@ function App() {
         return;
       }
 
-      remoteIdRef.current = data?.from;
-      setRemoteId(remoteIdRef?.current || null);
+      // Only set remoteId from incoming messages if we're not the caller
+      if (!connectedRemoteId) {
+        remoteIdRef.current = data?.from;
+        setConnectedRemoteId(data?.from);
+      }
 
       if (data?.type === 'offer') {
         // Store incoming offer and show answer button
@@ -177,6 +181,10 @@ function App() {
   // Button handlers - now just call the separate functions
   const handleStartCall = async (e) => {
     e.preventDefault();
+    if (!remoteId.trim()) {
+      alert('Please enter a Remote ID to call');
+      return;
+    }
     await createOfferHandler();
   };
 
@@ -193,20 +201,50 @@ function App() {
 
   return (
     <>
-      <h2>My ID: {myId}</h2>
-      <video ref={localVideoRef} autoPlay muted style={{width: '300px', height: '200px'}}>You</video>
+      <div style={{margin: '10px 0'}}>
+        <h3>My ID: <span style={{color: '#007bff', fontFamily: 'monospace'}}>{myId}</span></h3>
+        <small>Share this ID with others to receive calls</small>
+      </div>
       
-      <h2>Remote ID: {remoteId}</h2>
-      <video ref={remoteVideoRef} autoPlay style={{width: '300px', height: '200px'}}>Friend</video>
+      <video ref={localVideoRef} autoPlay muted style={{width: '300px', height: '200px', border: '2px solid #ccc'}}>You</video>
+      
+      <div style={{margin: '10px 0'}}>
+        <label>Call someone: </label>
+        <input 
+          value={remoteId} 
+          onChange={(e) => setRemoteId(e.target.value)}
+          placeholder="Enter their ID"
+          style={{padding: '5px', marginLeft: '5px'}}
+        />
+        {connectedRemoteId && (
+          <div style={{color: '#28a745', fontSize: '12px'}}>
+            Connected to: {connectedRemoteId}
+          </div>
+        )}
+      </div>
+      
+      <video ref={remoteVideoRef} autoPlay style={{width: '300px', height: '200px', border: '2px solid #ccc'}}>Friend</video>
       
       <div>
-        <button onClick={handleStartCall}>Start Call</button>
+        <button 
+          onClick={handleStartCall}
+          disabled={!remoteId.trim()}
+          style={{
+            backgroundColor: remoteId.trim() ? '#007bff' : '#ccc',
+            color: 'white',
+            padding: '10px 15px',
+            marginRight: '10px'
+          }}
+        >
+          Start Call
+        </button>
         <button 
           onClick={handleAnswerCall} 
           disabled={!answerButton}
           style={{
             backgroundColor: answerButton ? '#4CAF50' : '#ccc',
-            color: answerButton ? 'white' : '#666'
+            color: answerButton ? 'white' : '#666',
+            padding: '10px 15px'
           }}
         >
           {answerButton ? 'Answer Call' : 'No Incoming Call'}
@@ -221,7 +259,7 @@ function App() {
           border: '2px solid #007bff',
           borderRadius: '5px'
         }}>
-          <h3>📞 Incoming Call from {remoteId}</h3>
+          <h3>📞 Incoming Call from {connectedRemoteId}</h3>
           <p>Someone wants to video call you!</p>
         </div>
       )}
