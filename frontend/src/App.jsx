@@ -15,7 +15,7 @@ function App() {
   const remoteVideoRef = useRef();
   const peerConnectionRef = useRef(null);
   
-  const BACKEND_URL = '';
+  const BACKEND_URL = 'wss://webrtc-du7f.onrender.com';
 
   // Separate function to handle creating offer
   const createOfferHandler = async () => {
