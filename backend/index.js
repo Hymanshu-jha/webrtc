@@ -31,20 +31,60 @@ wss.on('connection', (socket) => {
   socket.on('message', (data) => {
     try {
       const msg = JSON.parse(data);
-      const { type, payload , to , from } = msg;
+      const { type, to, from } = msg;
 
+      // Handle client registration
       if (type === 'join') {
-        clients.set(payload.id, socket);
-        console.log(`🆔 Registered client: ${payload.id}`);
+        const clientId = msg.payload?.id || from;
+        clients.set(clientId, socket);
+        console.log(`🆔 Registered client: ${clientId}`);
+        
+        // Send confirmation back to client
+        socket.send(JSON.stringify({
+          type: 'joined',
+          id: clientId,
+          message: 'Successfully joined'
+        }));
         return;
       }
 
-      const targetSocket = clients.get(to);
-      if (targetSocket && targetSocket.readyState === 1) {
-        targetSocket.send(JSON.stringify(msg));
+      // Handle WebRTC signaling messages (offer, answer, ice)
+      if (['offer', 'answer', 'ice'].includes(type)) {
+        console.log(`📤 Relaying ${type} from ${from} to ${to}`);
+        
+        if (!to) {
+          console.error('❌ No recipient specified for message');
+          socket.send(JSON.stringify({
+            type: 'error',
+            message: 'No recipient specified'
+          }));
+          return;
+        }
+
+        const targetSocket = clients.get(to);
+        if (targetSocket && targetSocket.readyState === 1) {
+          // Forward the entire message to the target client
+          targetSocket.send(JSON.stringify(msg));
+          console.log(`✅ Message relayed successfully`);
+        } else {
+          console.error(`❌ Target client ${to} not found or disconnected`);
+          socket.send(JSON.stringify({
+            type: 'error',
+            message: `Client ${to} not available`
+          }));
+        }
+        return;
       }
+
+      // Handle other message types
+      console.log(`📨 Unknown message type: ${type}`);
+      
     } catch (err) {
       console.error('❌ Error in WebSocket message:', err);
+      socket.send(JSON.stringify({
+        type: 'error',
+        message: 'Invalid message format'
+      }));
     }
   });
 
@@ -58,4 +98,10 @@ wss.on('connection', (socket) => {
       }
     }
   });
+
+  socket.on('error', (error) => {
+    console.error('❌ WebSocket error:', error);
+  });
 });
+
+console.log('🚀 WebRTC Signaling Server Ready');
