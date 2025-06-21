@@ -1,26 +1,29 @@
-
-
-
 import express from 'express';
 import http from 'http';
-import { WebSocket } from 'ws';
+import { WebSocketServer } from 'ws';
 import cors from 'cors';
 
-
-
 const app = express();
-const corsOptions = {
-  origin: 'https://webrtc-navy.vercel.app/', // allow only this origin
-  credentials: true,               // allow cookies/auth headers if needed
-};
-const server = http.createServer(app);
 
-// Enable CORS for all routes
-app.use(cors());
+// ✅ Properly use your defined CORS options
+const corsOptions = {
+  origin: 'https://webrtc-navy.vercel.app', // ✅ no trailing slash
+  credentials: true, // for cookies, auth headers etc.
+};
+
+// ✅ Apply CORS with your options
+app.use(cors(corsOptions));
+
+// ✅ JSON body parser middleware
 app.use(express.json());
 
+// Create HTTP server
+const server = http.createServer(app);
+
 // Create WebSocket server
-const wss = new WebSocket.Server({ server });
+const wss = new WebSocketServer({ server });
+
+// You can add your WebSocket logic below...
 
 // Store connected users
 const users = new Map(); // userId -> { ws, id, status }
