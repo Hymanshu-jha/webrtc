@@ -1,6 +1,6 @@
 import React, { useRef, useEffect, useState } from 'react';
 
-const signalingServerUrl = 'ws://localhost:3001';
+const signalingServerUrl = 'wss://webrtc-du7f.onrender.com/';
 const pc = new RTCPeerConnection({
   iceServers: [{ urls: 'stun:stun.l.google.com:19302' }]
 });

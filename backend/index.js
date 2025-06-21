@@ -1,12 +1,18 @@
-const express = require('express');
-const http = require('http');
-const WebSocket = require('ws');
-const cors = require('cors');
+import express from 'express';
+import http from 'http';
+import { WebSocketServer } from 'ws';
+import cors from 'cors';
 
 const app = express();
-app.use(cors());
+const corsOptions = {
+  origin: 'https://webrtc-navy.vercel.app/', // allow only this origin
+  credentials: true,               // allow cookies/auth headers if needed
+};
+
+app.use(cors(corsOptions));
+
 const server = http.createServer(app);
-const wss = new WebSocket.Server({ server });
+const wss = new WebSocketServer({ server });
 
 let clients = [];
 
@@ -20,7 +26,7 @@ wss.on('connection', (ws) => {
 
   ws.on('message', (message) => {
     clients.forEach((client) => {
-      if (client !== ws && client.readyState === WebSocket.OPEN) {
+      if (client !== ws && client.readyState === ws.OPEN) {
         client.send(message);
       }
     });
