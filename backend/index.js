@@ -60,6 +60,30 @@ export const handleMessageReceived = (message, ws) => {
 }
 
 
+
+
+wss.on('connection', (ws) => {
+  console.log('New WebSocket connection');
+
+  ws.on('message', (message) => {
+    console.log('Received:', message);
+    handleMessageReceived(message, ws);
+  });
+
+  ws.on('close', () => {
+    // Optional cleanup logic if needed
+    for (const [id, socket] of roomMembers.entries()) {
+      if (socket === ws) {
+        roomMembers.delete(id);
+        console.log(`User ${id} disconnected`);
+        break;
+      }
+    }
+  });
+});
+
+
+
 app.get('/', (req, res) => {
   const data = req.body;
   console.log('Received data:', data);
