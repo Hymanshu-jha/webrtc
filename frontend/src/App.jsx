@@ -6,9 +6,7 @@ function App() {
   const roomId = 'room123';
   const socketRef = useRef(null);
 
-  const [myId] = useState(() =>
-    Math.floor(Math.random() * 10000).toString().padStart(4, '0')
-  );
+  const [myId, setMyId] = useState(null);
 
   const [remoteId, setRemoteId] = useState(null);
   const [messageInput, setMessageInput] = useState('');
@@ -109,7 +107,7 @@ function App() {
           <input
             type="text"
             value={myId}
-            readOnly
+            onChange={(e) => {setMyId(e.target.value)}}
             className="mt-1 w-full border rounded px-3 py-2 text-gray-700 bg-gray-100"
           />
         </div>
