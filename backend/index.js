@@ -17,7 +17,7 @@ const server = http.createServer(app);
 const wss = new WebSocketServer({ server });
 
 const roomMembers = new Map(); // senderId => WebSocket
-const MAX_MEMBERS = 20;
+const MAX_MEMBERS = 2;
 
 export const handleMessageReceived = (message, ws) => {
   let parsed;
