@@ -16,7 +16,6 @@ app.use(express.json());
 const server = http.createServer(app);
 const wss = new WebSocketServer({ server });
 
-
 const roomMembers = new Map(); // senderId => WebSocket
 const MAX_MEMBERS = 20;
 
@@ -30,48 +29,61 @@ export const handleMessageReceived = (message, ws) => {
     return;
   }
 
-  const { senderId, message: text } = parsed;
+  const { senderId, message: text, type } = parsed;
 
-  if (!senderId || !text) {
-    console.log("Missing senderId or message");
-    ws.send(JSON.stringify({ type: "error", message: "Missing senderId or message" }));
+  if (!senderId) {
+    console.log("Missing senderId");
+    ws.send(JSON.stringify({ type: "error", message: "Missing senderId" }));
     return;
   }
 
-  if (!roomMembers.has(senderId)) {
-    if (roomMembers.size >= MAX_MEMBERS) {
-      console.log(`Room is full. Rejecting ${senderId}`);
-      ws.send(JSON.stringify({ type: "error", message: "Room is full" }));
-      return;
-    }
-    roomMembers.set(senderId, ws);
-    console.log(`User ${senderId} joined the room`);
+  // Handle different message types
+  if (type === 'ack') {
+    console.log(`Acknowledgment from ${senderId}: ${text}`);
+    return; // Don't forward acknowledgments
   }
 
-  // Send message to the other member
-  for (const [id, socket] of roomMembers.entries()) {
-    if (id !== senderId && socket.readyState === ws.OPEN) {
-      socket.send(JSON.stringify({
-        from: senderId,
-        message: text,
-      }));
+  if (type === 'message') {
+    if (!text) {
+      console.log("Missing message text");
+      ws.send(JSON.stringify({ type: "error", message: "Missing message" }));
+      return;
+    }
+
+    // Add user to room if not already present
+    if (!roomMembers.has(senderId)) {
+      if (roomMembers.size >= MAX_MEMBERS) {
+        console.log(`Room is full. Rejecting ${senderId}`);
+        ws.send(JSON.stringify({ type: "error", message: "Room is full" }));
+        return;
+      }
+      roomMembers.set(senderId, ws);
+      console.log(`User ${senderId} joined the room`);
+    }
+
+    // Send message to other members (matching frontend expected format)
+    for (const [id, socket] of roomMembers.entries()) {
+      if (id !== senderId && socket.readyState === 1) { // 1 = WebSocket.OPEN
+        socket.send(JSON.stringify({
+          senderId: senderId,  // Frontend expects 'senderId'
+          message: text,       // Frontend expects 'message'
+          type: 'message'
+        }));
+      }
     }
   }
 }
-
-
-
 
 wss.on('connection', (ws) => {
   console.log('New WebSocket connection');
 
   ws.on('message', (message) => {
-    console.log('Received:', message);
-    handleMessageReceived(message, ws);
+    console.log('Received:', message.toString());
+    handleMessageReceived(message.toString(), ws);
   });
 
   ws.on('close', () => {
-    // Optional cleanup logic if needed
+    // Clean up disconnected user
     for (const [id, socket] of roomMembers.entries()) {
       if (socket === ws) {
         roomMembers.delete(id);
@@ -80,14 +92,14 @@ wss.on('connection', (ws) => {
       }
     }
   });
+
+  ws.on('error', (error) => {
+    console.error('WebSocket error:', error);
+  });
 });
 
-
-
 app.get('/', (req, res) => {
-  const data = req.body;
-  console.log('Received data:', data);
-  res.status(201).json({ message: 'Data received', data });
+  res.status(200).json({ message: 'WebSocket server is running' });
 });
 
 const PORT = process.env.PORT || 5000;

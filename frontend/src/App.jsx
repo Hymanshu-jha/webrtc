@@ -6,8 +6,7 @@ function App() {
   const roomId = 'room123';
   const socketRef = useRef(null);
 
-  const [myId, setMyId] = useState(null);
-
+  const [myId, setMyId] = useState('');
   const [remoteId, setRemoteId] = useState(null);
   const [messageInput, setMessageInput] = useState('');
   const [messageReceived, setMessageReceived] = useState('');
@@ -56,33 +55,56 @@ function App() {
   }, []);
 
   const handleMessageReceived = (msg) => {
-    setMessageReceived('');
-
     if (!msg) {
       console.log('null msg object received');
       return;
     }
 
-    if (msg?.senderId) {
-      setRemoteId(msg.senderId);
+    console.log('Received message:', msg);
+
+    // Handle different message types
+    if (msg.type === 'error') {
+      console.error('Server error:', msg.message);
+      alert(`Server error: ${msg.message}`);
+      return;
     }
 
-    if (msg?.message) {
-      setMessageReceived(msg.message);
-      socketRef.current.send(
-        JSON.stringify({
-          type: 'ack',
-          message: `message received ${msg.message}`,
-          senderId: myId,
-        })
-      );
+    if (msg.type === 'message') {
+      if (msg?.senderId) {
+        setRemoteId(msg.senderId);
+      }
+
+      if (msg?.message) {
+        setMessageReceived(msg.message);
+        
+        // Send acknowledgment only if we have a valid myId
+        if (myId && socketRef.current?.readyState === WebSocket.OPEN) {
+          socketRef.current.send(
+            JSON.stringify({
+              type: 'ack',
+              message: `message received: ${msg.message}`,
+              senderId: myId,
+            })
+          );
+        }
+      }
     }
   };
 
   const handleSendMessage = (e) => {
     e.preventDefault();
 
-    if (socketRef.current.readyState === WebSocket.OPEN) {
+    if (!myId.trim()) {
+      alert('Please enter your ID first');
+      return;
+    }
+
+    if (!messageInput.trim()) {
+      alert('Please enter a message');
+      return;
+    }
+
+    if (socketRef.current?.readyState === WebSocket.OPEN) {
       socketRef.current.send(
         JSON.stringify({
           message: messageInput,
@@ -93,7 +115,8 @@ function App() {
       );
       setMessageInput('');
     } else {
-      console.log('There seems to be a connection problem');
+      console.log('WebSocket is not connected');
+      alert('Connection problem. Please try again.');
     }
   };
 
@@ -107,8 +130,9 @@ function App() {
           <input
             type="text"
             value={myId}
-            onChange={(e) => {setMyId(e.target.value)}}
-            className="mt-1 w-full border rounded px-3 py-2 text-gray-700 bg-gray-100"
+            onChange={(e) => setMyId(e.target.value)}
+            placeholder="Enter your unique ID"
+            className="mt-1 w-full border rounded px-3 py-2 text-gray-700 focus:outline-none focus:ring-2 focus:ring-blue-500"
           />
         </div>
 
@@ -119,13 +143,15 @@ function App() {
             placeholder="Type message..."
             value={messageInput}
             onChange={(e) => setMessageInput(e.target.value)}
-            className="mt-1 w-full border rounded px-3 py-2"
+            onKeyPress={(e) => e.key === 'Enter' && handleSendMessage(e)}
+            className="mt-1 w-full border rounded px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500"
           />
         </div>
 
         <button
           onClick={handleSendMessage}
-          className="bg-blue-500 text-white px-4 py-2 rounded hover:bg-blue-600 transition"
+          disabled={!myId.trim() || connectionState !== 'OPEN'}
+          className="bg-blue-500 text-white px-4 py-2 rounded hover:bg-blue-600 transition disabled:bg-gray-400 disabled:cursor-not-allowed"
         >
           Send Message
         </button>
@@ -138,6 +164,7 @@ function App() {
             type="text"
             value={remoteId || ''}
             readOnly
+            placeholder="Waiting for messages..."
             className="mt-1 w-full border rounded px-3 py-2 text-gray-700 bg-gray-100"
           />
         </div>
@@ -148,12 +175,17 @@ function App() {
             type="text"
             value={messageReceived}
             readOnly
+            placeholder="No messages yet..."
             className="mt-1 w-full border rounded px-3 py-2 text-gray-700 bg-gray-100"
           />
         </div>
 
-        <div className="text-sm text-gray-500 mt-2">
-          WebSocket: {connectionStatus[socketRef.current?.readyState || 0]}
+        <div className={`text-sm mt-2 ${
+          connectionState === 'OPEN' ? 'text-green-600' : 
+          connectionState === 'ERROR' ? 'text-red-600' : 
+          'text-yellow-600'
+        }`}>
+          Status: {connectionState}
         </div>
       </div>
     </div>
